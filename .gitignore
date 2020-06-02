@@ -1,0 +1,26 @@
+# Specifies intentionally untracked files to ignore.
+#
+# https://git-scm.com/docs/gitignore
+# https://www.gitignore.io/
+# https://github.com/github/gitignore
+#
+# In case of conflict with a specific file format, feel free to remove the
+# problematic line.
+
+# Generated when a Git operation is conflicting.
+*.orig
+
+# Visual Studio Code
+.vscode/*
+.history
+
+# Sublime
+*.tmPreferences.cache
+*.stTheme.cache
+# Workspace files are user-specific
+*.sublime-workspace
+
+# Exports
+*.exe
+
+
