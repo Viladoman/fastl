@@ -17,7 +17,14 @@ namespace fastl
 	template <class T> struct remove_reference<T&&> { typedef T type; };
 	template <typename T> typename remove_reference<T>::type&& move(T&& arg) { return static_cast<typename remove_reference<T>::type&&>(arg);	}
 
+	template <bool, typename T = void> struct enable_if {};
+	template <typename T> struct enable_if<true, T> { typedef T type; };
+	template <bool B, typename T = void> using enable_if_t = typename enable_if<B, T>::type;
+
 	template<typename T, typename ... Args> void Construct(T* ptr, Args&&... args) { new (ptr) T(move(args)...); }
+
+	template<typename T> T* CreateBuffer(size_t size){ return (T*) new char[size*sizeof(T)]; }
+	template<typename T> void DestroyBuffer(T* buffer){ delete[] reinterpret_cast<char*>(buffer); }
 
 	////////////////////////////////////////////////////////////////////////////////////////////
 	template<typename T> class vector
@@ -38,7 +45,12 @@ namespace fastl
 		explicit vector(size_t size);
 		vector(const vector<T>& input);
 
-		//TODO ~ ramonv ~ We can fake initializer list with an enable_if SFINAE and a variadic template
+		//If more than 1 argument is provided we assume that we want to construct the vector with its elements ( using SFINAE - fake initializer list )
+		template<typename ... Args, enable_if_t<(sizeof...(Args) > 1)>* = nullptr> 
+		vector(Args&&... args) : m_data(CreateBuffer<T>(sizeof...(Args))), m_size(0u), m_capacity(sizeof...(Args))
+		{ 
+			(emplace_back(args),...); 
+		}
 
 		~vector();
 
@@ -62,12 +74,11 @@ namespace fastl
 		void clear();
 
 		void push_back(const value_type& value);
-		void insert(iterator it,const value_type& value);
-		template<typename ... Args> void emplace(iterator it, Args&&... args);
+		iterator insert(iterator it,const value_type& value);
+		template<typename ... Args> iterator emplace(iterator it, Args&&... args);
 		template<typename ... Args> void emplace_back(Args&&... args);
 
 		void pop_back();
-
 
 		iterator erase(iterator it);
 		iterator erase(iterator fromIt,iterator toIt); 
@@ -90,20 +101,26 @@ namespace fastl
 
 	//------------------------------------------------------------------------------------------
 	template<typename T> vector<T>::vector(size_t size)
-		: m_data(new T[size])
+		: m_data(CreateBuffer<T>(size))
 		, m_size(size)
 		, m_capacity(size)
 	{ 
+		//Call the default constructor for all preallocated elements
+		for (size_type i = 0u; i < m_size; ++i)
+		{
+			Construct<T>(&m_data[i]); 
+		}
 	}
 
 	//------------------------------------------------------------------------------------------
 	template<typename T> vector<T>::vector(const vector<T>& input)
-		: m_data(new T[input.m_size])
+		: m_data(CreateBuffer<T>(input.m_capacity))
 		, m_size(input.m_size)
 		, m_capacity(input.m_capacity)
 	{
 		for (size_t i = 0u; i < m_size; ++i)
 		{
+			Construct<T>(&m_data[i]); 
 			m_data[i] = input[i];
 		} 
 	}
@@ -116,7 +133,7 @@ namespace fastl
 			m_data[i].~T();
 		}
 		
-		delete[] reinterpret_cast<char*>(m_data);
+		DestroyBuffer(m_data);
 	}
 
 	//------------------------------------------------------------------------------------------
@@ -138,7 +155,7 @@ namespace fastl
 		if (size > m_capacity)
 		{ 
 			m_capacity = size;
-			T* newData = reinterpret_cast<T*>(new char[m_capacity*sizeof(T)]);
+			T* newData = CreateBuffer<T>(m_capacity);
 
 			for (size_type i = 0u; i < m_size; ++i)
 			{
@@ -146,7 +163,7 @@ namespace fastl
 				m_data[i].~T();
 			}
 
-			delete[] reinterpret_cast<char*>(m_data);
+			DestroyBuffer(m_data);
 			m_data = newData;
 			
 		}
@@ -179,13 +196,13 @@ namespace fastl
 	//------------------------------------------------------------------------------------------
 	template<typename T> inline void vector<T>::push_back(const value_type& value)
 	{
-		return emplace(end(), value);
+		emplace(end(), value);
 	}
 
 	//------------------------------------------------------------------------------------------
-	template<typename T> inline void vector<T>::insert(iterator it,const value_type& value)
+	template<typename T> inline typename vector<T>::iterator vector<T>::insert(iterator it,const value_type& value)
 	{ 
-		emplace(it, value);
+		return emplace(it, value);
 	}
 
 	//------------------------------------------------------------------------------------------
@@ -204,7 +221,7 @@ namespace fastl
 	}
 
 	//------------------------------------------------------------------------------------------
-	template<typename T> template<typename ... Args> void vector<T>::emplace(iterator it, Args&&... args)
+	template<typename T> template<typename ... Args> typename vector<T>::iterator vector<T>::emplace(iterator it, Args&&... args)
 	{ 
 		const size_type index = it-begin();
 
@@ -213,15 +230,17 @@ namespace fastl
 			reserve(m_capacity == 0u? DEFAULT_CAPACITY_SIZE : 2u*m_capacity);
 		}
 
-		iterator insertIt = begin() + index;
-		for (iterator i = end(); i > insertIt;--i)
+		iterator insertIt = begin() + index; //this is important as reserve might move the memory around
+		for (iterator i = end()-1; i >= insertIt;--i)
 		{
-			i->~T(); 
-			Construct<T>(i,*(i-1));
+			Construct<T>(i+1,*i);
+			i->~T();
 		}
 
 		Construct<T>(insertIt,move(args)...);
 		++m_size;
+
+		return insertIt;
 	}
 
 	//------------------------------------------------------------------------------------------

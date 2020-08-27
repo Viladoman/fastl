@@ -34,6 +34,8 @@ namespace fastl
 	public:
 		typedef TChar value_type;
 		typedef typename TData::size_type size_type;
+
+		static constexpr size_type npos = -1;
 	public:
 		StringImpl();
 		StringImpl(const char* input);
@@ -54,6 +56,9 @@ namespace fastl
 
 		value_type& operator[](size_type index) { return m_data[index]; }
 		value_type  operator[](size_type index) const { return m_data[index]; }
+
+		StringImpl& erase( size_type index){ m_data.erase(m_data.begin()+index); return *this; }
+		StringImpl& erase( size_type index, size_type count){ m_data.erase(m_data.begin()+index,m_data.begin()+index+count); return *this; }
 
 		StringImpl<TChar> operator+(const char c);
 		StringImpl<TChar> operator+(const char* str);

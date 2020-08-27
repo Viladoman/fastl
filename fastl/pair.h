@@ -10,7 +10,7 @@ namespace fastl
 		typedef T1 first_type;
 		typedef T2 second_type;
 
-		pair(){}
+		pair():first(),second(){}
 		pair(const T1& _first, const T2& _second):first(_first),second(_second) {}
 
 		T1 first; 
