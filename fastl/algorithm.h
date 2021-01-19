@@ -48,8 +48,23 @@ namespace fastl
     template<class Iterator, class T, class Compare>
     Iterator lower_bound(Iterator first, Iterator last, const T& value, Compare comp)
     {
-        //CAUTION: Linear search instead of binary search
-        for (; first != last && comp(*first, value); ++first) {}
+        //specific implementation for continous memory ( vectors ) 
+        Iterator it;
+        size_t count = last-first; 
+        while (count > 0) {
+            it = first;
+            size_t step = count / 2;
+            it += step;
+            if (comp(*it,value))
+            {
+                first = ++it;
+                count -= step + 1;
+            }
+            else
+            {
+                count = step;
+            }
+        }
         return first;
     }
 
@@ -59,9 +74,6 @@ namespace fastl
     {
         return lower_bound(first, last, value, [=](const T& lhs, const T& rhs) { return lhs < rhs; });
     }
-
-
-    //TODO ~ ramonv ~ add sort
 }
 
 #else 
